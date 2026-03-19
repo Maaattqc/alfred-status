@@ -1,11 +1,16 @@
 const http = require("http");
 const fs = require("fs/promises");
 const path = require("path");
+const { execSync } = require("child_process");
 const { WebSocketServer } = require("ws");
 
 const PORT = 3850;
 const STATUS_FILE = path.join(__dirname, "status.json");
 const CLIENT_DIR = path.join(__dirname, "client", "dist");
+const CLICZONE_DIR = "/home/debian/cliczone";
+const APPLY_SECRET = "alfred-apply-secret-2026";
+const VERCEL_TOKEN = "vcp_6tXWEWI51ayEyM3xeRMaqcOAchKAM1pKc8haakXM4WDunNQ3az3ZiUPm";
+const VERCEL_PROJECT = "prj_rWml7lYOucpAT2qprMw43eN2XAuR";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -26,11 +31,141 @@ const server = http.createServer(async (req, res) => {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Alfred-Secret");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // --- API: Apply code change ---
+  if (url.pathname === "/api/apply" && req.method === "POST") {
+    const secret = req.headers["x-alfred-secret"];
+    if (secret !== APPLY_SECRET) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Forbidden" }));
+      return;
+    }
+
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", async () => {
+      try {
+        const { file, fullContent, description } = JSON.parse(body);
+        if (!file || !fullContent) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing file or fullContent" }));
+          return;
+        }
+
+        // Security: prevent path traversal
+        const resolved = path.resolve(CLICZONE_DIR, file);
+        if (!resolved.startsWith(CLICZONE_DIR + "/")) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid file path" }));
+          return;
+        }
+
+        // Ensure directory exists
+        await fs.mkdir(path.dirname(resolved), { recursive: true });
+
+        // Write file
+        await fs.writeFile(resolved, fullContent, "utf-8");
+
+        // Git add, commit, push
+        const commitMsg = description
+          ? `feat(chatbot): ${description}`
+          : "feat(chatbot): apply change from dev chat";
+        execSync(`git -C ${CLICZONE_DIR} add "${file}"`, { timeout: 10000 });
+        execSync(`git -C ${CLICZONE_DIR} commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { timeout: 10000 });
+        execSync(`git -C ${CLICZONE_DIR} push`, { timeout: 30000 });
+
+        // Trigger Vercel deployment
+        let deployId = null;
+        try {
+          const deployRes = execSync(`curl -s -X POST \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.vercel.com/v13/deployments" \
+            -d '${JSON.stringify({
+              name: "cliczone",
+              project: VERCEL_PROJECT,
+              target: "production",
+              gitSource: { type: "github", repoId: "1175747742", ref: "main" }
+            })}'`, { timeout: 15000 }).toString();
+          const parsed = JSON.parse(deployRes);
+          deployId = parsed.id || null;
+        } catch (e) {
+          console.error("Vercel deploy trigger failed:", e.message);
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, file, deployId }));
+      } catch (e) {
+        console.error("Apply error:", e.message);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // --- API: Read file from cliczone ---
+  if (url.pathname === "/api/read" && req.method === "GET") {
+    const secret = req.headers["x-alfred-secret"];
+    if (secret !== APPLY_SECRET) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Forbidden" }));
+      return;
+    }
+
+    const file = url.searchParams.get("file");
+    if (!file) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing file parameter" }));
+      return;
+    }
+
+    const resolved = path.resolve(CLICZONE_DIR, file);
+    if (!resolved.startsWith(CLICZONE_DIR + "/")) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid file path" }));
+      return;
+    }
+
+    try {
+      const content = await fs.readFile(resolved, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, file, content }));
+    } catch (e) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `File not found: ${file}` }));
+    }
+    return;
+  }
+
+  // --- API: List files in cliczone/src ---
+  if (url.pathname === "/api/files" && req.method === "GET") {
+    const secret = req.headers["x-alfred-secret"];
+    if (secret !== APPLY_SECRET) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Forbidden" }));
+      return;
+    }
+
+    try {
+      const output = execSync(
+        `find ${CLICZONE_DIR}/src -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.css" -o -name "*.json" \\) | sed 's|${CLICZONE_DIR}/||'`,
+        { timeout: 5000 }
+      ).toString().trim();
+      const files = output ? output.split("\n") : [];
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, files }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
