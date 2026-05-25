@@ -8,7 +8,6 @@
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Bun](https://img.shields.io/badge/Bun-1.x-fbf0df?logo=bun&logoColor=black)](https://bun.sh/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-realtime-brightgreen)]()
-[![Live](https://img.shields.io/badge/live-mathieu--fournier.net%2Falfred-blue)](https://mathieu-fournier.net/alfred/)
 
 ---
 
@@ -16,7 +15,7 @@
 
 Alfred Status is a real-time monitoring dashboard that displays what an AI assistant is currently doing. It shows live status (idle / coding / thinking), current task description, and a chronological activity log — all pushed instantly via WebSocket.
 
-The dashboard is publicly accessible at [mathieu-fournier.net/alfred](https://mathieu-fournier.net/alfred/).
+The dashboard is publicly accessible at [mathieu-fournier.net/alfred]().
 
 **[FR]** Alfred Status est un dashboard de monitoring temps réel qui affiche l'activité d'un assistant IA en direct. Statut, tâche en cours et journal d'activité — mis à jour instantanément via WebSocket.
 
@@ -134,6 +133,6 @@ alfred-status/
 
 Alfred Status est un dashboard de monitoring temps réel pour un assistant IA. Il affiche le statut en direct (idle/coding/thinking), la tâche en cours, et un journal d'activité — le tout mis à jour instantanément via WebSocket.
 
-L'agent IA met à jour son propre statut avant et après chaque tâche grâce à un script shell. Le dashboard est accessible publiquement sur [mathieu-fournier.net/alfred](https://mathieu-fournier.net/alfred/).
+L'agent IA met à jour son propre statut avant et après chaque tâche grâce à un script shell. Le dashboard est accessible publiquement sur [mathieu-fournier.net/alfred]().
 
 **Stack:** React + TypeScript (frontend), Bun + WebSocket (backend), JSON file state, Cloudflare Tunnel (déploiement).
