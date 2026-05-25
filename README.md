@@ -1,95 +1,139 @@
-# Alfred Status 🎩
+# Alfred Status
 
-> Real-time dashboard for monitoring an AI assistant's activity — live status, task tracking, token usage, and activity log via WebSocket.
+> Real-time dashboard for monitoring an AI assistant's activity — live status, task tracking, and activity log via WebSocket.
 >
-> Dashboard temps réel pour surveiller l'activité d'un assistant IA — statut en direct, suivi des tâches, usage de tokens et journal d'activité via WebSocket.
+> Dashboard temps réel pour surveiller l'activité d'un assistant IA — statut en direct, suivi des tâches et journal d'activité via WebSocket.
 
-## 🚀 Overview / Aperçu
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![Bun](https://img.shields.io/badge/Bun-1.x-fbf0df?logo=bun&logoColor=black)](https://bun.sh/)
+[![WebSocket](https://img.shields.io/badge/WebSocket-realtime-brightgreen)]()
+[![Live](https://img.shields.io/badge/live-mathieu--fournier.net%2Falfred-blue)](https://mathieu-fournier.net/alfred/)
 
-**[EN]** Alfred Status is a real-time monitoring dashboard that displays what an AI assistant (Alfred, powered by OpenClaw) is currently doing. It shows live status (idle/coding/thinking), current task description, token usage and cost statistics, and a chronological activity log — all updated in real-time via WebSocket. The dashboard is publicly accessible at [mathieu-fournier.net/alfred](https://mathieu-fournier.net/alfred/).
+---
 
-**[FR]** Alfred Status est un dashboard de monitoring temps réel qui affiche ce que l'assistant IA (Alfred, propulsé par OpenClaw) fait en ce moment. Il montre le statut en direct (idle/coding/thinking), la description de la tâche en cours, les statistiques d'usage de tokens et coûts, et un journal d'activité chronologique — le tout mis à jour en temps réel via WebSocket.
+## Overview
 
-## 🛠️ Tech Stack
+Alfred Status is a real-time monitoring dashboard that displays what an AI assistant is currently doing. It shows live status (idle / coding / thinking), current task description, and a chronological activity log — all pushed instantly via WebSocket.
+
+The dashboard is publicly accessible at [mathieu-fournier.net/alfred](https://mathieu-fournier.net/alfred/).
+
+**[FR]** Alfred Status est un dashboard de monitoring temps réel qui affiche l'activité d'un assistant IA en direct. Statut, tâche en cours et journal d'activité — mis à jour instantanément via WebSocket.
+
+---
+
+## Architecture
+
+```
+Shell script (alfred-status.sh)
+        │
+        ▼
+    status.json  ←──────────────┐
+        │                       │
+        ▼                       │
+ Bun HTTP Server           REST API (POST /status)
+ + WebSocket (ws)               │
+        │                  AI Agent (OpenClaw)
+        ▼
+  React Client
+  ├── StatusCard     — idle / coding / thinking
+  ├── StatsCard      — token usage + cost
+  └── ActivityLog    — event timeline
+```
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React, TypeScript, Vite |
-| **Backend** | Bun (native HTTP server) |
-| **Real-time** | WebSocket (ws) |
-| **State** | JSON file-based persistence |
-| **Hosting** | OVH VPS via Cloudflare Tunnel |
-| **Integration** | OpenClaw shell scripts for status updates |
+| **Frontend** | React 18, TypeScript, Vite |
+| **Backend** | Bun (native HTTP + WebSocket) |
+| **Real-time** | WebSocket (ws) — push, no polling |
+| **State** | JSON file persistence (`status.json`) |
+| **Hosting** | OVH VPS + Cloudflare Tunnel |
+| **Integration** | Shell scripts called by the AI agent |
 
-## 🧠 Technical Highlights / Défis Techniques
+---
 
-- **WebSocket-powered real-time updates** — no polling, instant status changes pushed to all connected clients
-- **Dual-runtime architecture** — Bun server (TypeScript) for production with Node.js fallback, React + Vite client
-- **File-based state** — `status.json` as single source of truth, updated by shell scripts and read by the API
-- **Shell script integration** — `alfred-status.sh` called by the AI agent before/after every task for live tracking
-- **Component architecture** — `StatusCard`, `StatsCard`, `ActivityLog` as clean, focused React components
-- **Custom hook** — `useAlfred()` hook managing WebSocket connection, reconnection, and state hydration
+## Features
+
+- **Live status indicator** — idle / coding / thinking with visual feedback
+- **Current task display** — what the assistant is working on right now
+- **Activity log** — chronological event history with timestamps
+- **WebSocket push** — instant updates, no page refresh
+- **Webhook API** — agent updates status via `POST /status` before and after each task
+- **Public dashboard** — zero auth, accessible from anywhere
+
+---
+
+## Technical Highlights
+
+- **Dual-runtime** — Bun server (TypeScript) for production, Node.js fallback
+- **`useAlfred()` hook** — manages WebSocket connection, reconnection, and state hydration
+- **File-based state** — `status.json` as single source of truth, written by shell scripts
 - **Zero-config deployment** — runs behind Cloudflare Tunnel, no port forwarding needed
+- **Shell integration** — `alfred-status.sh` called by the agent before/after every task
 
-## ✨ Features / Fonctionnalités
+---
 
-- 🟢 **Live status indicator** — idle / coding / thinking with visual feedback
-- 📋 **Current task display** — what Alfred is working on right now
-- 📊 **Token & cost stats** — session and total token usage with cost tracking
-- 📜 **Activity log** — chronological event history with timestamps
-- ⚡ **Real-time updates** — WebSocket push, no page refresh needed
-- 🔗 **Public dashboard** — accessible at mathieu-fournier.net/alfred
-
-## 📦 Installation
+## Quick Start
 
 ```bash
 # Backend
-npm install        # or bun install
-npm start          # starts server on port 3849
-
-# Frontend (development)
-cd client
 npm install
-npm run dev        # Vite dev server
+npm start          # port 3850
 
-# Frontend (production)
-cd client
-npm run build      # outputs to dist/
+# Frontend (dev)
+cd client && npm install && npm run dev
+
+# Frontend (build)
+cd client && npm run build
 ```
 
-## 📁 Architecture
+Copy `.env.example` → `.env` and fill in required values.
+
+---
+
+## Agent Integration
+
+The AI agent updates its own status before and after each task:
+
+```bash
+alfred-status coding "Building feature X" "Started"
+alfred-status idle "" "Feature X complete ✅"
+alfred-status thinking "Analyzing codebase" "Reading files"
+```
+
+---
+
+## Project Structure
 
 ```
 alfred-status/
-├── server.ts          # Bun HTTP + WebSocket server
-├── server.js          # Node.js fallback server
-├── status.json        # Current state (updated by scripts)
-├── package.json
-└── client/            # React frontend
-    └── src/
-        ├── App.tsx
-        ├── hooks/
-        │   └── useAlfred.ts        # WebSocket hook
-        └── components/
-            ├── StatusCard.tsx       # Status display
-            ├── StatsCard.tsx        # Token/cost stats
-            └── ActivityLog.tsx      # Event timeline
+├── server.ts              # Bun HTTP + WebSocket server
+├── server.js              # Node.js fallback
+├── status.json            # Live state
+└── client/src/
+    ├── hooks/useAlfred.ts        # WebSocket hook
+    └── components/
+        ├── StatusCard.tsx
+        ├── StatsCard.tsx
+        └── ActivityLog.tsx
 ```
 
-## 🔌 Integration / Intégration
+---
 
-Alfred updates his status via shell script:
-```bash
-# Start a task
-alfred-status coding "Building feature X" "Started work"
-
-# Finish a task  
-alfred-status idle "" "Feature X complete ✅"
-
-# Thinking
-alfred-status thinking "Analyzing code" "Reading repo"
-```
-
-## 👤 Author / Auteur
+## Author
 
 **Mathieu Fournier** — [@Maaattqc](https://github.com/Maaattqc)
+
+---
+
+# Version française
+
+Alfred Status est un dashboard de monitoring temps réel pour un assistant IA. Il affiche le statut en direct (idle/coding/thinking), la tâche en cours, et un journal d'activité — le tout mis à jour instantanément via WebSocket.
+
+L'agent IA met à jour son propre statut avant et après chaque tâche grâce à un script shell. Le dashboard est accessible publiquement sur [mathieu-fournier.net/alfred](https://mathieu-fournier.net/alfred/).
+
+**Stack:** React + TypeScript (frontend), Bun + WebSocket (backend), JSON file state, Cloudflare Tunnel (déploiement).
