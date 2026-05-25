@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/Maaattqc/alfred-status#readme",
   "dependencies": {
+    "dotenv": "^17.4.2",
     "ws": "^8.19.0"
   }
 }

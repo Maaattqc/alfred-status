@@ -1,8 +1,8 @@
 {
   "status": "coding",
-  "task": "ClicZone — système Apply pour le chatbot",
-  "started": "2026-03-19T03:28:34.540Z",
-  "lastUpdate": "2026-03-19T03:28:34.540Z",
+  "task": "Security scan — tokens/passwords hardcodés dans repos 2026",
+  "started": "2026-05-25T00:16:35.011Z",
+  "lastUpdate": "2026-05-25T00:23:56.944Z",
   "log": [
     {
       "time": "2026-03-17T23:15:00Z",
@@ -67,6 +67,34 @@
     {
       "time": "2026-03-19T03:28:34.540Z",
       "event": "Setup webhook OVH + frontend Apply button 🚀"
+    },
+    {
+      "time": "2026-03-19T03:33:28.376Z",
+      "event": "ClicZone DevChatbot Apply system déployé ✅"
+    },
+    {
+      "time": "2026-03-20T03:40:14.308Z",
+      "event": "Prise de screenshots des onglets 📸"
+    },
+    {
+      "time": "2026-03-20T03:41:49.532Z",
+      "event": "Screenshots Québec Web Audit — 5 onglets capturés et pushés ✅"
+    },
+    {
+      "time": "2026-03-20T03:46:53.131Z",
+      "event": "Prise de screenshots des pages 📸"
+    },
+    {
+      "time": "2026-03-20T03:49:34.915Z",
+      "event": "Screenshots ClicZone — 5 pages capturées et pushées ✅"
+    },
+    {
+      "time": "2026-05-25T00:16:35.011Z",
+      "event": "Démarrage"
+    },
+    {
+      "time": "2026-05-25T00:23:56.944Z",
+      "event": "Scan en cours"
     }
   ],
   "stats": {

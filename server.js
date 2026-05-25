@@ -1,3 +1,4 @@
+require("dotenv").config();
 const http = require("http");
 const fs = require("fs/promises");
 const path = require("path");
@@ -8,9 +9,9 @@ const PORT = 3850;
 const STATUS_FILE = path.join(__dirname, "status.json");
 const CLIENT_DIR = path.join(__dirname, "client", "dist");
 const CLICZONE_DIR = "/home/debian/cliczone";
-const APPLY_SECRET = "alfred-apply-secret-2026";
-const VERCEL_TOKEN = "vcp_6tXWEWI51ayEyM3xeRMaqcOAchKAM1pKc8haakXM4WDunNQ3az3ZiUPm";
-const VERCEL_PROJECT = "prj_rWml7lYOucpAT2qprMw43eN2XAuR";
+const APPLY_SECRET = process.env.ALFRED_SECRET || "";
+const VERCEL_TOKEN = process.env.VERCEL_TOKEN || "";
+const VERCEL_PROJECT = process.env.VERCEL_PROJECT || "";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -52,10 +53,10 @@ const server = http.createServer(async (req, res) => {
     req.on("data", (c) => (body += c));
     req.on("end", async () => {
       try {
-        const { file, fullContent, description } = JSON.parse(body);
-        if (!file || !fullContent) {
+        const { file, fullContent, oldText, newText, description } = JSON.parse(body);
+        if (!file || (!fullContent && (!oldText || !newText))) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Missing file or fullContent" }));
+          res.end(JSON.stringify({ error: "Missing file or content" }));
           return;
         }
 
@@ -70,16 +71,35 @@ const server = http.createServer(async (req, res) => {
         // Ensure directory exists
         await fs.mkdir(path.dirname(resolved), { recursive: true });
 
-        // Write file
-        await fs.writeFile(resolved, fullContent, "utf-8");
+        if (oldText && newText) {
+          // Search-replace mode — minimal, surgical change
+          const existing = await fs.readFile(resolved, "utf-8");
+          if (!existing.includes(oldText)) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: `Text not found in file: "${oldText.slice(0, 100)}"` }));
+            return;
+          }
+          const updated = existing.replace(oldText, newText);
+          await fs.writeFile(resolved, updated, "utf-8");
+        } else {
+          // Full content mode (fallback)
+          await fs.writeFile(resolved, fullContent, "utf-8");
+        }
 
         // Git add, commit, push
         const commitMsg = description
           ? `feat(chatbot): ${description}`
           : "feat(chatbot): apply change from dev chat";
         execSync(`git -C ${CLICZONE_DIR} add "${file}"`, { timeout: 10000 });
-        execSync(`git -C ${CLICZONE_DIR} commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { timeout: 10000 });
-        execSync(`git -C ${CLICZONE_DIR} push`, { timeout: 30000 });
+        // Check if there's anything to commit
+        const statusOut = execSync(`git -C ${CLICZONE_DIR} status --porcelain`, { timeout: 5000 }).toString().trim();
+        if (!statusOut) {
+          // Nothing changed — file was identical, still trigger deploy
+          console.log("[Apply] No changes detected (file content identical), triggering deploy anyway");
+        } else {
+          execSync(`git -C ${CLICZONE_DIR} commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { timeout: 10000 });
+          execSync(`git -C ${CLICZONE_DIR} push`, { timeout: 30000 });
+        }
 
         // Trigger Vercel deployment
         let deployId = null;
